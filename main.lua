@@ -17,6 +17,7 @@ local listenbrainz = require "listenbrainz"
 local cache = require "cache"
 local stats = require "stats"
 local history = require "history"
+local batch = require "batch"
 
 -- === CLI ARGUMENTS ===
 
@@ -35,6 +36,8 @@ Options:
   --export [file]     Export stats to CSV
   --history [n]       Show recent search history (default: 10)
   --clear-history     Clear search history
+  --import <file>     Import scrobbles from CSV or JSON file
+  --create-import     Create example import file
 
 Environment Variables:
   DEMEL_LOG_LEVEL     Set log verbosity (0=SILENT, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG)
@@ -81,6 +84,18 @@ for i, arg in ipairs(arg) do
     elseif arg == "--clear-history" then
         history.clear()
         os.exit(0)
+    elseif arg == "--import" then
+        local filename = arg[i + 1]
+        if not filename then
+            print("[ERROR] Please specify a file to import")
+            os.exit(1)
+        end
+        -- Handle import in special mode (needs modules loaded)
+        _G.BATCH_IMPORT_FILE = filename
+    elseif arg == "--create-import" then
+        batch.create_example_csv()
+        batch.create_example_json()
+        os.exit(0)
     end
 end
 
@@ -95,6 +110,56 @@ print("----------------")
 -- Check Connections
 if not gemini.check_connection() then os.exit(1) end
 if not listenbrainz.check_connection() then os.exit(1) end
+
+-- Handle batch import if requested
+if _G.BATCH_IMPORT_FILE then
+    print("\n\27[1mBatch Import Mode\27[0m")
+    print("----------------")
+
+    local entries = batch.import_file(_G.BATCH_IMPORT_FILE)
+    if not entries or #entries == 0 then
+        print("[ERROR] No valid entries found in file")
+        os.exit(1)
+    end
+
+    print(string.format("[INFO] Found %d entries to import", #entries))
+    print("[INFO] This will scrobble them to ListenBrainz")
+    io.write("Continue? (y/N) > ")
+    local confirm = io.read()
+
+    if confirm ~= "y" and confirm ~= "Y" then
+        print("Cancelled.")
+        os.exit(0)
+    end
+
+    local success_count = 0
+    local fail_count = 0
+
+    for i, entry in ipairs(entries) do
+        local artist = entry.artist
+        local title = entry.title
+        local album = entry.album or "Unknown Album"
+        local timestamp = entry.timestamp or os.time()
+
+        io.write(string.format("[%d/%d] %s - %s... ", i, #entries, artist, title))
+
+        local ok = listenbrainz.submit_listen(artist, title, album, timestamp)
+        if ok then
+            stats.record_scrobble(artist, title, album, timestamp)
+            history.add_entry("batch import", artist, title, album)
+            print("✓")
+            success_count = success_count + 1
+            -- Rate limit: wait 1 second between scrobbles
+            os.execute("sleep 1")
+        else
+            print("✗")
+            fail_count = fail_count + 1
+        end
+    end
+
+    print(string.format("\n[INFO] Import complete: %d success, %d failed", success_count, fail_count))
+    os.exit(0)
+end
 
 print("\n\27[32mSystem Ready.\27[0m Type 'exit' or 'quit' to leave.")
 
