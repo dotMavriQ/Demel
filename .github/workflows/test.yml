@@ -14,7 +14,7 @@ jobs:
       - name: Syntax Check
         run: |
           find . -name "*.lua" -exec lua5.4 -p {} +
-      
+
       - name: Run Tests
         run: |
           cd tests

@@ -8,7 +8,7 @@ function M.print_gemini(msg) print("\27[35m[GEMINI]\27[0m " .. msg) end
 function M.curl_post(url, headers, body, max_retries)
     max_retries = max_retries or 3
     local attempt = 0
-    
+
     while attempt < max_retries do
         attempt = attempt + 1
         local cmd = "curl -s -w '\\n%{http_code}' -X POST '" .. url .. "'"
@@ -22,20 +22,20 @@ function M.curl_post(url, headers, body, max_retries)
         local handle = io.popen(cmd)
         local result = handle:read("*a")
         handle:close()
-        
+
         -- Extract status code from result
         local body_part, status_code = result:match("(.*)\n(%d%d%d)$")
         if status_code and tonumber(status_code) < 500 then
             return body_part or result
         end
-        
+
         if attempt < max_retries then
             local wait = attempt * 2 -- Exponential backoff
             M.print_err("Request failed (attempt " .. attempt .. "/" .. max_retries .. "), retrying in " .. wait .. "s...")
             os.execute("sleep " .. wait)
         end
     end
-    
+
     M.print_err("Request failed after " .. max_retries .. " attempts")
     return nil
 end
@@ -43,27 +43,27 @@ end
 function M.curl_get(url, max_retries)
     max_retries = max_retries or 3
     local attempt = 0
-    
+
     while attempt < max_retries do
         attempt = attempt + 1
         local cmd = "curl -s -w '\\n%{http_code}' -L '" .. url .. "' -H 'User-Agent: DemelCLI/1.0 ( lua-cli )'"
         local handle = io.popen(cmd)
         local result = handle:read("*a")
         handle:close()
-        
+
         -- Extract status code from result
         local body_part, status_code = result:match("(.*)\n(%d%d%d)$")
         if status_code and tonumber(status_code) >= 200 and tonumber(status_code) < 500 then
             return body_part or result
         end
-        
+
         if attempt < max_retries then
             local wait = attempt * 2 -- Exponential backoff
             M.print_err("Request failed (attempt " .. attempt .. "/" .. max_retries .. "), retrying in " .. wait .. "s...")
             os.execute("sleep " .. wait)
         end
     end
-    
+
     M.print_err("Request failed after " .. max_retries .. " attempts")
     return nil
 end

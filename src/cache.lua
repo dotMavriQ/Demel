@@ -26,34 +26,34 @@ end
 function M.get(key)
     ensure_cache_dir()
     local path = get_cache_path(key)
-    
+
     local file = io.open(path, "r")
     if not file then return nil end
-    
+
     local content = file:read("*a")
     file:close()
-    
+
     local status, data = pcall(cjson.decode, content)
     if not status then return nil end
-    
+
     -- Check if cache is expired
     if os.time() - data.timestamp > CACHE_TTL then
         os.remove(path)
         return nil
     end
-    
+
     return data.value
 end
 
 function M.set(key, value)
     ensure_cache_dir()
     local path = get_cache_path(key)
-    
+
     local cache_entry = {
         timestamp = os.time(),
         value = value
     }
-    
+
     local file = io.open(path, "w")
     if file then
         file:write(cjson.encode(cache_entry))

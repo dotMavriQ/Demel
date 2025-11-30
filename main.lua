@@ -15,6 +15,7 @@ local gemini = require "gemini"
 local musicbrainz = require "musicbrainz"
 local listenbrainz = require "listenbrainz"
 local cache = require "cache"
+local stats = require "stats"
 
 -- === CLI ARGUMENTS ===
 
@@ -29,6 +30,8 @@ Options:
   -v, --version       Show version information
   --clear-cache       Clear the MusicBrainz search cache
   --debug             Enable debug logging
+  --stats             Show scrobbling statistics
+  --export [file]     Export stats to CSV
 
 Environment Variables:
   DEMEL_LOG_LEVEL     Set log verbosity (0=SILENT, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG)
@@ -61,6 +64,13 @@ for i, arg in ipairs(arg) do
         os.exit(0)
     elseif arg == "--debug" then
         os.setenv("DEMEL_LOG_LEVEL", "4")
+    elseif arg == "--stats" then
+        stats.show_stats()
+        os.exit(0)
+    elseif arg == "--export" then
+        local filename = arg[i + 1]
+        stats.export_csv(filename)
+        os.exit(0)
     end
 end
 
@@ -156,6 +166,7 @@ while true do
                     local current_ts = start_time
                     for _, track in ipairs(tracks) do
                         listenbrainz.submit_listen(track.artist, track.title, selected.title, current_ts)
+                        stats.record_scrobble(track.artist, track.title, selected.title, current_ts)
                         -- Add duration (ms to seconds) for next track's timestamp
                         current_ts = current_ts + (track.duration / 1000)
                     end
@@ -165,7 +176,11 @@ while true do
                 else
                     -- Single Track
                     local start_time = get_start_time()
-                    listenbrainz.submit_listen(selected["artist-credit"][1].name, selected.title, selected.releases[1].title, start_time)
+                    local artist = selected["artist-credit"][1].name
+                    local title = selected.title
+                    local album = selected.releases[1].title
+                    listenbrainz.submit_listen(artist, title, album, start_time)
+                    stats.record_scrobble(artist, title, album, start_time)
                 end
             end
         end

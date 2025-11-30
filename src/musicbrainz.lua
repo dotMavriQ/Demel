@@ -76,7 +76,7 @@ function M.search(intent)
             utils.print_info("Using cached results for: " .. query)
             return cached
         end
-        
+
         utils.print_info("Searching MusicBrainz for: " .. query)
         local q = utils.url_encode(query)
         local url = "https://musicbrainz.org/ws/2/" .. entity .. "?query=" .. q .. "&fmt=json&limit=20"
@@ -88,12 +88,12 @@ function M.search(intent)
         if not status then return nil end
 
         local results = (intent.type == "album") and data.releases or data.recordings
-        
+
         -- Cache the results
         if results then
             cache.set(cache_key, results)
         end
-        
+
         return results
     end
 
