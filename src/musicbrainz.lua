@@ -2,6 +2,7 @@ local cjson = require "cjson"
 local utils = require "utils"
 local os = require "os"
 local gemini = require "gemini" -- Require gemini for refinement
+local cache = require "cache"
 
 local M = {}
 
@@ -68,6 +69,14 @@ function M.search(intent)
     local results = nil
 
     local function execute_search(query)
+        -- Check cache first
+        local cache_key = "mb_search:" .. entity .. ":" .. query
+        local cached = cache.get(cache_key)
+        if cached then
+            utils.print_info("Using cached results for: " .. query)
+            return cached
+        end
+        
         utils.print_info("Searching MusicBrainz for: " .. query)
         local q = utils.url_encode(query)
         local url = "https://musicbrainz.org/ws/2/" .. entity .. "?query=" .. q .. "&fmt=json&limit=20"
@@ -78,7 +87,14 @@ function M.search(intent)
         local status, data = pcall(cjson.decode, res)
         if not status then return nil end
 
-        return (intent.type == "album") and data.releases or data.recordings
+        local results = (intent.type == "album") and data.releases or data.recordings
+        
+        -- Cache the results
+        if results then
+            cache.set(cache_key, results)
+        end
+        
+        return results
     end
 
     -- 1. Try Strict Search
@@ -198,12 +214,14 @@ function M.select_result(results, intent)
              local new_intent_data = refinement.new_search_intent
              utils.print_gemini(refinement.message)
 
+             local function clean(v) return (v ~= cjson.null and v ~= "null") and v or nil end
+
              -- Create a new intent for the search
              local new_intent = {
                  type = intent_type,
-                 artist = new_intent_data.artist or intent.artist,
-                 title = new_intent_data.title or intent.title,
-                 album = new_intent_data.album, -- New field
+                 artist = clean(new_intent_data.artist) or intent.artist,
+                 title = clean(new_intent_data.title) or intent.title,
+                 album = clean(new_intent_data.album), -- New field
                  search_query = "" -- Will be rebuilt
              }
 
@@ -219,7 +237,9 @@ function M.select_result(results, intent)
              else
                  return nil
              end
-        end        if not refinement or refinement.suggested_index == cjson.null or type(refinement.suggested_index) ~= "number" then
+        end
+
+        if not refinement or refinement.suggested_index == cjson.null or type(refinement.suggested_index) ~= "number" then
             utils.print_err("I couldn't figure out which one you meant. Please try again.")
             return M.select_result(results, intent_type)
         end

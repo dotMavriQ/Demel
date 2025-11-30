@@ -55,6 +55,8 @@ function M.parse_intent(user_input)
 
                 IMPORTANT: If the user asks for "the original" or provides lyrics/description, identify the MOST FAMOUS or ORIGINAL artist for that song. For "Killing Me Softly", it is Roberta Flack (or Fugees if specified). For "I Will Always Love You", it is Whitney Houston or Dolly Parton. Do not pick obscure covers.
 
+                IMPORTANT: Correct common typos or misremembered titles. For example, if the user says "100000 by NIN", they likely mean "1,000,000". If they say "Teen Spirit", they mean "Smells Like Teen Spirit". Use the CORRECT official title in the "title" field.
+
                 Return ONLY valid JSON. No markdown formatting.
 
                 Input: "]] .. user_input .. [[".
@@ -163,7 +165,14 @@ function M.refine_selection(options, user_query, original_intent)
     if data.candidates and data.candidates[1].content then
         local raw_text = data.candidates[1].content.parts[1].text
         raw_text = raw_text:gsub("```json", ""):gsub("```", "")
-        return cjson.decode(raw_text)
+        local parsed = cjson.decode(raw_text)
+
+        -- Sanitize
+        if parsed.message == cjson.null then parsed.message = "Refining search..." end
+        if parsed.suggested_index == cjson.null then parsed.suggested_index = nil end
+        if parsed.new_search_intent == cjson.null then parsed.new_search_intent = nil end
+
+        return parsed
     else
         return { message = "I couldn't figure it out.", suggested_index = nil }
     end

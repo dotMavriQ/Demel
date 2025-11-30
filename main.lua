@@ -1,5 +1,8 @@
 #!/usr/bin/env lua
 
+-- Demel - A CLI music scrobbler with AI assistance
+local VERSION = "0.2.0"
+
 -- Add src to package path
 local str = debug.getinfo(1, "S").source:sub(2)
 local path = str:match("(.*/)") or "./"
@@ -11,6 +14,55 @@ local config = require "config"
 local gemini = require "gemini"
 local musicbrainz = require "musicbrainz"
 local listenbrainz = require "listenbrainz"
+local cache = require "cache"
+
+-- === CLI ARGUMENTS ===
+
+local function show_help()
+    print([[
+Demel - CLI Music Scrobbler with AI assistance
+
+Usage: demel [OPTIONS]
+
+Options:
+  -h, --help          Show this help message
+  -v, --version       Show version information
+  --clear-cache       Clear the MusicBrainz search cache
+  --debug             Enable debug logging
+
+Environment Variables:
+  DEMEL_LOG_LEVEL     Set log verbosity (0=SILENT, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG)
+  GEMINI_API_KEY      Your Gemini API key
+  LISTENBRAINZ_TOKEN  Your ListenBrainz user token
+
+Examples:
+  demel                    Start interactive mode
+  demel --clear-cache      Clear cached search results
+  DEMEL_LOG_LEVEL=4 demel  Run with debug logging
+]])
+    os.exit(0)
+end
+
+local function show_version()
+    print("Demel v" .. VERSION)
+    print("A CLI music scrobbler with AI-powered intent parsing")
+    os.exit(0)
+end
+
+-- Parse arguments
+for i, arg in ipairs(arg) do
+    if arg == "-h" or arg == "--help" then
+        show_help()
+    elseif arg == "-v" or arg == "--version" then
+        show_version()
+    elseif arg == "--clear-cache" then
+        cache.clear()
+        print("Cache cleared!")
+        os.exit(0)
+    elseif arg == "--debug" then
+        os.setenv("DEMEL_LOG_LEVEL", "4")
+    end
+end
 
 -- === INITIALIZATION ===
 

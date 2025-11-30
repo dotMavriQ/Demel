@@ -7,10 +7,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Install Lua
-        run: sudo apt-get install -y lua5.4
-        
+        run: sudo apt-get install -y lua5.4 lua-cjson
+
       - name: Syntax Check
         run: |
           find . -name "*.lua" -exec lua5.4 -p {} +
+      
+      - name: Run Tests
+        run: |
+          cd tests
+          lua5.4 test_utils.lua
