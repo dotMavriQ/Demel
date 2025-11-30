@@ -1,0 +1,11 @@
+#!/bin/bash
+# Get the directory where the script is located
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Try to set up luarocks paths if available
+if command -v luarocks &> /dev/null; then
+    eval $(luarocks path --bin)
+fi
+
+# Run main.lua from that directory
+lua "$DIR/main.lua"
