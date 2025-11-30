@@ -16,6 +16,7 @@ local musicbrainz = require "musicbrainz"
 local listenbrainz = require "listenbrainz"
 local cache = require "cache"
 local stats = require "stats"
+local history = require "history"
 
 -- === CLI ARGUMENTS ===
 
@@ -32,6 +33,8 @@ Options:
   --debug             Enable debug logging
   --stats             Show scrobbling statistics
   --export [file]     Export stats to CSV
+  --history [n]       Show recent search history (default: 10)
+  --clear-history     Clear search history
 
 Environment Variables:
   DEMEL_LOG_LEVEL     Set log verbosity (0=SILENT, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG)
@@ -70,6 +73,13 @@ for i, arg in ipairs(arg) do
     elseif arg == "--export" then
         local filename = arg[i + 1]
         stats.export_csv(filename)
+        os.exit(0)
+    elseif arg == "--history" then
+        local count = tonumber(arg[i + 1]) or 10
+        history.show_recent(count)
+        os.exit(0)
+    elseif arg == "--clear-history" then
+        history.clear()
         os.exit(0)
     end
 end
@@ -173,6 +183,9 @@ while true do
 
                     utils.print_success("Full album scrobbled!")
 
+                    -- Record album in history
+                    history.add_entry(user_input, intent.artist, intent.title, selected.title)
+
                 else
                     -- Single Track
                     local start_time = get_start_time()
@@ -181,6 +194,9 @@ while true do
                     local album = selected.releases[1].title
                     listenbrainz.submit_listen(artist, title, album, start_time)
                     stats.record_scrobble(artist, title, album, start_time)
+
+                    -- Record in history
+                    history.add_entry(user_input, artist, title, album)
                 end
             end
         end
